@@ -1,10 +1,9 @@
 from marshmallow import validate
 from flask_marshmallow import Marshmallow
 
-from app import app
 from models import Exercise, Workout, WorkoutExercise
 
-ma = Marshmallow(app)
+ma = Marshmallow()
 
 
 class ExerciseSchema(ma.SQLAlchemyAutoSchema):
