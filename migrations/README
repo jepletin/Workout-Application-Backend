@@ -1,1 +1,144 @@
 Single-database configuration for Flask.
+# Workout App Backend
+
+A Flask REST API for tracking workouts and exercises. Built with Flask,
+SQLAlchemy, Marshmallow and Flask-Migrate, and tested with pytest.
+
+## Features
+
+- Create, view and delete **workouts**
+- Create, view and delete **exercises**
+- Add an exercise to a workout with `reps`, `sets` or `duration_seconds`
+- Validation on both the model layer and the schema layer
+- Database constraints (positive values, one exercise per workout)
+- Automated tests that run on a separate in-memory database
+
+## Project structure
+
+```
+server/
+├── app.py            # Creates and configures the Flask app (app factory)
+├── routes.py         # All API endpoints (Blueprint)
+├── models.py         # Exercise, Workout, WorkoutExercise models
+├── schemas.py        # Marshmallow schemas for validation and JSON output
+├── seed.py           # Adds sample data
+├── test_app.py       # Automated tests
+├── pytest.ini        # pytest configuration
+└── migrations/       # Database migrations (Flask-Migrate / Alembic)
+```
+
+## Data model
+
+- **Exercise**: `id`, `name`, `category`, `equipment_needed`
+- **Workout**: `id`, `date`, `duration_minutes`, `notes`
+- **WorkoutExercise** (join table): `id`, `workout_id`, `exercise_id`,
+  `reps`, `sets`, `duration_seconds`
+
+A workout can have many exercises and an exercise can be in many workouts.
+The same exercise cannot be added to the same workout twice.
+
+## Setup
+
+```bash
+cd server
+pipenv install
+pipenv install --dev pytest
+pipenv shell
+```
+
+## Set up the database
+
+```bash
+export FLASK_APP=app.py
+flask db upgrade
+python seed.py
+```
+
+## Run the server
+
+```bash
+python app.py
+```
+
+The API runs at `http://localhost:5555`.
+
+## Run the tests
+
+```bash
+pytest
+```
+
+The tests use an in-memory SQLite database, so your real `app.db` is never touched.
+
+Useful variations:
+
+```bash
+pytest -k workout        # only tests with "workout" in their name
+pytest test_app.py::TestModels
+pytest -x                # stop at the first failure
+```
+
+## API endpoints
+
+| Method | Endpoint | Description | Success |
+|--------|----------|-------------|---------|
+| GET | `/workouts` | List all workouts | 200 |
+| GET | `/workouts/<id>` | One workout with its exercises | 200 |
+| POST | `/workouts` | Create a workout | 201 |
+| DELETE | `/workouts/<id>` | Delete a workout | 200 |
+| GET | `/exercises` | List all exercises | 200 |
+| GET | `/exercises/<id>` | One exercise with its workouts | 200 |
+| POST | `/exercises` | Create an exercise | 201 |
+| DELETE | `/exercises/<id>` | Delete an exercise | 200 |
+| POST | `/workouts/<workout_id>/exercises/<exercise_id>/workout_exercises` | Add an exercise to a workout | 201 |
+
+### Error responses
+
+| Status | Meaning |
+|--------|---------|
+| 400 | Invalid or missing data, or no JSON body |
+| 404 | Workout or exercise not found |
+| 409 | The exercise is already in that workout |
+
+Errors look like this:
+
+```json
+{ "error": "Workout not found" }
+```
+
+### Example requests
+
+Create a workout:
+
+```bash
+curl -X POST http://localhost:5555/workouts \
+  -H "Content-Type: application/json" \
+  -d '{"date": "2025-02-01", "duration_minutes": 45, "notes": "Leg day"}'
+```
+
+Create an exercise:
+
+```bash
+curl -X POST http://localhost:5555/exercises \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Squat", "category": "Legs", "equipment_needed": true}'
+```
+
+Add exercise 1 to workout 1:
+
+```bash
+curl -X POST http://localhost:5555/workouts/1/exercises/1/workout_exercises \
+  -H "Content-Type: application/json" \
+  -d '{"reps": 10, "sets": 3}'
+```
+
+## What the tests cover
+
+- **Models**: name trimming, empty values, non-positive numbers, duplicate
+  exercise in a workout, cascade deletes
+- **Workout routes**: list, get one, create, invalid data, 404s, delete
+- **Exercise routes**: list, get one, create, invalid data, 404s, delete
+- **Associations**: adding an exercise, duplicates (409), invalid reps/sets,
+  missing records, deleting an exercise removes it from workouts
+
+## Author
